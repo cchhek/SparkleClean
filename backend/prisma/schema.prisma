@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  name      String
+  role      String   @default("CUSTOMER") // "ADMIN" or "CUSTOMER"
+  createdAt DateTime @default(now())
+}
+
+model Service {
+  id          String    @id @default(uuid())
+  name        String
+  description String
+  price       Float     // Base price
+  duration    Int       // Estimated duration in minutes
+  image       String?   // URL to image
+  active      Boolean   @default(true)
+  bookings    Booking[]
+  createdAt   DateTime  @default(now())
+}
+
+model Addon {
+  id          String         @id @default(uuid())
+  name        String         @unique
+  price       Float
+  description String?
+  bookings    BookingAddon[]
+}
+
+model Booking {
+  id              String         @id @default(uuid())
+  bookingRef      String         @unique
+  serviceId       String
+  service         Service        @relation(fields: [serviceId], references: [id])
+  propertyType    String         // "HOUSE" or "APARTMENT"
+  bedrooms        Int
+  bathrooms       Int
+  date            DateTime
+  timeSlot        String         // e.g. "09:00", "13:00"
+  customerName    String
+  customerEmail   String
+  customerPhone   String
+  customerAddress String
+  addons          BookingAddon[]
+  totalPrice      Float
+  status          String         @default("PENDING") // "PENDING", "CONFIRMED", "COMPLETED", "CANCELLED"
+  payment         Payment?
+  createdAt       DateTime       @default(now())
+}
+
+model BookingAddon {
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  addonId   String
+  addon     Addon   @relation(fields: [addonId], references: [id], onDelete: Cascade)
+
+  @@id([bookingId, addonId])
+}
+
+model Payment {
+  id              String   @id @default(uuid())
+  bookingId       String   @unique
+  booking         Booking  @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  stripeSessionId String   @unique
+  amount          Float
+  status          String   // "PENDING", "PAID", "FAILED"
+  createdAt       DateTime @default(now())
+}
