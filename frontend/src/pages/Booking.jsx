@@ -2,7 +2,9 @@ import { useEffect, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { api } from '../utils/api';
-import { Sparkles, ArrowRight, ArrowLeft, Home, Building, CheckCircle, CreditCard, Clock, Calendar, HelpCircle } from 'lucide-react';
+import SquarePaymentForm from '../components/SquarePaymentForm';
+import { Sparkles, ArrowRight, ArrowLeft, Home, Building, CheckCircle, CreditCard, Clock, Calendar, HelpCircle, ShieldCheck } from 'lucide-react';
+
 
 const FALLBACK_SERVICES = [
   { id: 'regular-house-cleaning', name: 'Regular House Cleaning', price: 120.0 },
@@ -25,6 +27,40 @@ const TIME_SLOTS = [
   '04:00 PM - 06:00 PM'
 ];
 
+const HOBART_TIMEZONE = 'Australia/Hobart';
+
+const getHobartDateString = () => {
+  return new Date().toLocaleDateString('en-CA', { timeZone: HOBART_TIMEZONE });
+};
+
+const getHobartMinutes = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: HOBART_TIMEZONE,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  }).formatToParts(new Date());
+
+  const hour = parseInt(parts.find(part => part.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(part => part.type === 'minute')?.value || '0', 10);
+
+  return hour * 60 + minute;
+};
+
+const parseSlotStartMinutes = (slot) => {
+  const match = slot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return 0;
+
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === 'PM' && hour !== 12) hour += 12;
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
+};
+
 export default function Booking() {
   const location = useLocation();
   const navigate = useNavigate();
@@ -35,6 +71,10 @@ export default function Booking() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [apiError, setApiError] = useState(null);
+  const [dateNotice, setDateNotice] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('square'); // 'square' or 'stripe'
+  const [createdBooking, setCreatedBooking] = useState(null);
+
 
   // Initialize selected service from redirect state if available
   const initialServiceId = location.state?.selectedServiceId || '';
@@ -44,6 +84,7 @@ export default function Booking() {
     handleSubmit,
     watch,
     setValue,
+    trigger,
     formState: { errors, isValid }
   } = useForm({
     mode: 'all',
@@ -69,6 +110,13 @@ export default function Booking() {
   const selectedAddonIds = watch('addonIds') || [];
   const selectedDate = watch('date');
   const selectedTimeSlot = watch('timeSlot');
+
+  const isSlotPast = (slot) => {
+    if (!selectedDate) return false;
+    const hobartToday = getHobartDateString();
+    if (selectedDate !== hobartToday) return false;
+    return getHobartMinutes() > parseSlotStartMinutes(slot);
+  };
 
   useEffect(() => {
     async function loadData() {
@@ -102,6 +150,33 @@ export default function Booking() {
     }
   }, [selectedDate]);
 
+  useEffect(() => {
+    if (!selectedDate) {
+      setDateNotice('');
+      return;
+    }
+
+    const hobartToday = getHobartDateString();
+    if (selectedDate < hobartToday) {
+      setValue('date', '');
+      setValue('timeSlot', '');
+      setDateNotice('This date is now in the past for Hobart. Please choose another date.');
+      return;
+    }
+
+    if (selectedDate === hobartToday) {
+      const availableSlots = TIME_SLOTS.filter(slot => !isSlotPast(slot) && !unavailableSlots.some(s => s.date === selectedDate && s.timeSlot === slot));
+      if (availableSlots.length === 0) {
+        setValue('date', '');
+        setValue('timeSlot', '');
+        setDateNotice('No Hobart time slots remain today. Please select another date.');
+        return;
+      }
+    }
+
+    setDateNotice('');
+  }, [selectedDate, setValue, unavailableSlots]);
+
   // Helper to check if a slot is booked
   const isSlotBooked = (slot) => {
     return unavailableSlots.some(
@@ -134,8 +209,43 @@ export default function Booking() {
 
   const currentService = services.find(s => s.id === selectedServiceId);
 
-  const nextStep = () => setStep(prev => Math.min(prev + 1, 6));
-  const prevStep = () => setStep(prev => Math.max(prev - 1, 1));
+  const nextStep = async () => {
+    setApiError(null);
+
+    // Validation for Step 1 (Service Selection)
+    if (step === 1 && !selectedServiceId) {
+      setApiError('Please select a cleaning service before proceeding.');
+      return;
+    }
+
+    // Validation for Step 3 (Date and Time Selection)
+    if (step === 3) {
+      if (!selectedDate) {
+        setApiError('Please select a preferred cleaning date before proceeding.');
+        return;
+      }
+      if (!selectedTimeSlot) {
+        setApiError('Please select an available time slot before proceeding.');
+        return;
+      }
+    }
+
+    // Validation for Step 4 (Customer Information)
+    if (step === 4) {
+      const isStepValid = await trigger(['customerName', 'customerEmail', 'customerPhone', 'customerAddress']);
+      if (!isStepValid) {
+        setApiError('Please fill in all required customer information accurately before proceeding.');
+        return;
+      }
+    }
+
+    setStep(prev => Math.min(prev + 1, 6));
+  };
+  const prevStep = () => {
+    setApiError(null);
+    setStep(prev => Math.max(prev - 1, 1));
+  };
+
 
   const onSubmit = async (data) => {
     setSubmitting(true);
@@ -143,19 +253,29 @@ export default function Booking() {
 
     try {
       // 1. Create booking on backend
-      const booking = await api.createBooking(data);
+      let booking = createdBooking;
+      if (!booking) {
+        booking = await api.createBooking(data);
+        setCreatedBooking(booking);
+      }
 
-      // 2. Initiate checkout session
-      const session = await api.createCheckoutSession(booking.id);
-
-      // 3. Redirect to Payment (Stripe Checkout or Mock Checkout URL)
-      window.location.href = session.url;
+      if (paymentMethod === 'square') {
+        // Redirect to Square Online Checkout hosted payment page
+        const session = await api.createSquareCheckoutSession(booking.id);
+        window.location.href = session.url;
+      } else if (paymentMethod === 'stripe') {
+        // Redirect to Stripe Checkout session
+        const session = await api.createCheckoutSession(booking.id);
+        window.location.href = session.url;
+      }
     } catch (err) {
       console.error('Booking submission failed:', err);
       setApiError(err.message || 'Something went wrong during submission. Please try again.');
       setSubmitting(false);
     }
   };
+
+
 
   if (loading) {
     return (
@@ -313,11 +433,12 @@ export default function Booking() {
                     <input
                       id="date"
                       type="date"
-                      min={new Date().toISOString().split('T')[0]} // Block past dates
+                      min={getHobartDateString()} // Block past dates in Hobart
                       {...register('date', { required: 'Please select a date' })}
                       className="w-full px-4 py-3 border border-slate-200 rounded-xl focus:ring-2 focus:ring-sky-200 focus:border-sky-500 focus:outline-none"
                     />
                     {errors.date && <p className="text-rose-500 text-xs mt-1">{errors.date.message}</p>}
+                    {dateNotice && <p className="text-rose-500 text-xs mt-1">{dateNotice}</p>}
                   </div>
 
                   {/* Time slot picker */}
@@ -325,14 +446,17 @@ export default function Booking() {
                     <label className="block text-sm font-semibold text-slate-700">Available Time Slot</label>
                     <div className="space-y-2">
                       {TIME_SLOTS.map(slot => {
-                        const booked = isSlotBooked(slot);
+                        const booked = selectedDate ? isSlotBooked(slot) : false;
+                        const past = selectedDate ? isSlotPast(slot) : false;
+                        const unavailable = booked || past;
+
                         return (
                           <label
                             key={slot}
-                            className={`flex items-center p-3 border rounded-xl cursor-pointer hover:bg-slate-50 transition-all ${
+                            className={`flex items-center p-3.5 border rounded-xl cursor-pointer hover:bg-slate-50 transition-all ${
                               selectedTimeSlot === slot
-                                ? 'border-sky-500 bg-sky-50/50'
-                                : booked
+                                ? 'border-sky-500 bg-sky-50/70 shadow-xs font-bold'
+                                : unavailable
                                 ? 'border-slate-100 bg-slate-50/80 opacity-55 cursor-not-allowed'
                                 : 'border-slate-200'
                             }`}
@@ -340,12 +464,12 @@ export default function Booking() {
                             <input
                               type="radio"
                               value={slot}
-                              disabled={booked}
+                              disabled={unavailable}
                               {...register('timeSlot', { required: 'Please select a time slot' })}
                               className="h-4 w-4 text-sky-600 focus:ring-sky-500 border-slate-300"
                             />
-                            <span className={`ml-3 text-sm ${booked ? 'line-through text-slate-400 font-medium' : 'text-slate-700 font-semibold'}`}>
-                              {slot} {booked && '(Unavailable)'}
+                            <span className={`ml-3 text-sm ${unavailable ? 'line-through text-slate-400 font-medium' : 'text-slate-800 font-semibold'}`}>
+                              {slot} {booked && '(Unavailable)'}{!booked && past && '(Past time)'}
                             </span>
                           </label>
                         );
@@ -353,6 +477,8 @@ export default function Booking() {
                     </div>
                     {errors.timeSlot && <p className="text-rose-500 text-xs mt-1">{errors.timeSlot.message}</p>}
                   </div>
+
+
                 </div>
               </div>
             )}
@@ -457,11 +583,11 @@ export default function Booking() {
             )}
 
             {/* ==========================================
-                STEP 6: Booking Summary
+                STEP 6: Booking Summary & Payment
                 ========================================== */}
             {step === 6 && (
               <div className="space-y-6 text-left">
-                <h3 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3">Booking Summary</h3>
+                <h3 className="text-xl font-bold text-slate-900 border-b border-slate-100 pb-3">Booking Summary & Payment</h3>
 
                 <div className="space-y-4 text-sm text-slate-600">
                   <div className="flex justify-between">
@@ -497,6 +623,21 @@ export default function Booking() {
                     </div>
                   )}
                 </div>
+
+                {/* Payment Gateway Display (Exclusive Square Payment) */}
+                <div className="rounded-3xl border border-sky-200 bg-sky-50/70 p-5 space-y-2 text-left shadow-xs">
+                  <div className="flex items-center space-x-2.5 text-slate-900 font-bold text-base">
+                    <CreditCard className="h-5 w-5 text-sky-600" />
+                    <span>Square Online Checkout</span>
+                    <span className="ml-auto text-xs font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2.5 py-1 rounded-full flex items-center space-x-1">
+                      <ShieldCheck className="h-3.5 w-3.5" />
+                      <span>Official Square</span>
+                    </span>
+                  </div>
+                  <p className="text-slate-600 text-xs leading-relaxed">
+                    Upon clicking submit, you will be securely redirected to Square's official hosted checkout page to complete your card payment with 256-bit SSL encryption.
+                  </p>
+                </div>
               </div>
             )}
 
@@ -507,7 +648,10 @@ export default function Booking() {
               {step > 1 ? (
                 <button
                   type="button"
-                  onClick={prevStep}
+                  onClick={() => {
+                    setCreatedBooking(null);
+                    prevStep();
+                  }}
                   className="flex items-center space-x-2 border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold px-6 py-3 rounded-xl transition-all cursor-pointer text-sm"
                 >
                   <ArrowLeft className="h-4 w-4" />
@@ -533,10 +677,12 @@ export default function Booking() {
                   className="flex items-center space-x-2 bg-sky-600 hover:bg-sky-700 text-white font-bold px-8 py-3.5 rounded-xl transition-all shadow-md shadow-sky-100 hover:shadow-sky-200 cursor-pointer disabled:opacity-60 text-sm"
                 >
                   <CreditCard className="h-4 w-4" />
-                  <span>{submitting ? 'Redirecting to checkout...' : 'Continue to Payment'}</span>
+                  <span>{submitting ? 'Redirecting to Square Checkout...' : 'Proceed to Square Online Checkout'}</span>
                 </button>
               )}
             </div>
+
+
 
           </form>
         </div>

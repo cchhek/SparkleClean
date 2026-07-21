@@ -213,7 +213,7 @@ export default function AdminDashboard() {
               className="flex items-center space-x-1.5 bg-sky-500 hover:bg-sky-600 text-white font-bold px-4 py-2.5 rounded-xl transition-all shadow-md text-xs cursor-pointer"
             >
               <Plus className="h-4 w-4" />
-              <span>Add Addon</span>
+              <span>Add Add-on</span>
             </button>
           )}
         </div>
@@ -231,7 +231,7 @@ export default function AdminDashboard() {
                 : 'border-transparent text-slate-500 hover:text-slate-900'
             }`}
           >
-            {tab}
+            {tab === 'addons' ? 'Add-ons' : tab}
           </button>
         ))}
       </div>
@@ -396,7 +396,7 @@ export default function AdminDashboard() {
 
                   {selectedBooking.addons.length > 0 && (
                     <div className="space-y-1.5 border-t border-slate-100 pt-3">
-                      <span className="text-slate-400 block font-bold">Addons Included</span>
+                      <span className="text-slate-400 block font-bold">Add-ons Included</span>
                       <ul className="list-disc pl-5 space-y-0.5 text-slate-500">
                         {selectedBooking.addons.map((a, i) => (
                           <li key={i}>{a.addon.name} (${a.addon.price.toFixed(2)})</li>

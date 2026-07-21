@@ -2,8 +2,49 @@ const express = require('express');
 const { PrismaClient } = require('@prisma/client');
 const { authenticateToken, isAdmin } = require('../middleware/auth');
 
+const HOBART_TIMEZONE = 'Australia/Hobart';
+const BOOKING_TIME_SLOTS = [
+  '08:00 AM - 10:00 AM',
+  '10:00 AM - 12:00 PM',
+  '12:00 PM - 02:00 PM',
+  '02:00 PM - 04:00 PM',
+  '04:00 PM - 06:00 PM'
+];
+
 const router = express.Router();
 const prisma = new PrismaClient();
+
+const getHobartDateString = () => {
+  return new Date().toLocaleDateString('en-CA', { timeZone: HOBART_TIMEZONE });
+};
+
+const getHobartMinutes = () => {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: HOBART_TIMEZONE,
+    hour12: false,
+    hour: '2-digit',
+    minute: '2-digit'
+  }).formatToParts(new Date());
+
+  const hour = parseInt(parts.find(part => part.type === 'hour')?.value || '0', 10);
+  const minute = parseInt(parts.find(part => part.type === 'minute')?.value || '0', 10);
+
+  return hour * 60 + minute;
+};
+
+const parseSlotStartMinutes = (slot) => {
+  const match = slot.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+  if (!match) return 0;
+
+  let hour = parseInt(match[1], 10);
+  const minute = parseInt(match[2], 10);
+  const meridiem = match[3].toUpperCase();
+
+  if (meridiem === 'PM' && hour !== 12) hour += 12;
+  if (meridiem === 'AM' && hour === 12) hour = 0;
+
+  return hour * 60 + minute;
+};
 
 // Helper to generate a unique booking reference (e.g., SPARK-123456)
 function generateBookingRef() {
@@ -58,8 +99,9 @@ router.get('/unavailable-slots', async (req, res, next) => {
     const { date } = req.query;
 
     const whereClause = {
-      // Exclude cancelled bookings when checking capacity
-      status: { not: 'CANCELLED' }
+      // Only confirmed or completed bookings lock the time slot
+      status: { in: ['CONFIRMED', 'COMPLETED'] }
+
     };
 
     if (date) {
@@ -85,6 +127,21 @@ router.get('/unavailable-slots', async (req, res, next) => {
       date: b.date.toISOString().split('T')[0],
       timeSlot: b.timeSlot
     }));
+
+    if (date) {
+      const hobartToday = getHobartDateString();
+      if (date === hobartToday) {
+        const currentMinutes = getHobartMinutes();
+        BOOKING_TIME_SLOTS.forEach((slot) => {
+          if (currentMinutes > parseSlotStartMinutes(slot)) {
+            const exists = slots.some(s => s.date === date && s.timeSlot === slot);
+            if (!exists) {
+              slots.push({ date, timeSlot: slot });
+            }
+          }
+        });
+      }
+    }
 
     res.json(slots);
   } catch (error) {
@@ -125,7 +182,7 @@ router.post('/', async (req, res, next) => {
           lte: endOfDay
         },
         timeSlot,
-        status: { not: 'CANCELLED' }
+        status: { in: ['CONFIRMED', 'COMPLETED'] }
       }
     });
 

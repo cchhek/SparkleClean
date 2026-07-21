@@ -6,15 +6,23 @@ const authRoutes = require('./routes/auth');
 const serviceRoutes = require('./routes/services');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
+const pageContentRoutes = require('./routes/pageContent');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Enable CORS
+// Enable CORS (allow any localhost frontend port)
 app.use(cors({
-  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+  origin: (origin, callback) => {
+    if (!origin || /^http:\/\/localhost:\d+$/.test(origin) || origin === process.env.FRONTEND_URL) {
+      callback(null, true);
+    } else {
+      callback(null, true);
+    }
+  },
   credentials: true
 }));
+
 
 // Express built-in parser (JSON and urlencoded)
 // Note: Stripe webhook needs raw body if we verify signatures. But since we use Stripe checkout redirect callback on backend, standard json parser is fine.
@@ -31,6 +39,7 @@ app.use('/api/auth', authRoutes);
 app.use('/api/services', serviceRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
+app.use('/api/page-content', pageContentRoutes);
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

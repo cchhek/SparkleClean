@@ -100,6 +100,10 @@ export const api = {
   getUnavailableSlots: (date) => request(`/bookings/unavailable-slots${date ? `?date=${date}` : ''}`),
   createBooking: (data) => request('/bookings', { method: 'POST', body: JSON.stringify(data) }),
   
+  // Page Content
+  getPageContent: (page) => request(`/page-content?sitePage=${page}`),
+  savePageContent: (page, values) => request('/page-content', { method: 'PUT', body: JSON.stringify({ page, values }) }),
+  
   // Admin Bookings
   getBookings: (filters = {}) => {
     const params = new URLSearchParams();
@@ -115,4 +119,11 @@ export const api = {
   // Payments
   createCheckoutSession: (bookingId) => request('/payments/create-checkout-session', { method: 'POST', body: JSON.stringify({ bookingId }) }),
   verifyCheckoutSession: (sessionId, bookingId) => request('/payments/verify-checkout-session', { method: 'POST', body: JSON.stringify({ sessionId, bookingId }) }),
+  
+  // Square Payments
+  getSquareConfig: () => request('/payments/square-config'),
+  processSquarePayment: (bookingId, sourceId) => request('/payments/square-payment', { method: 'POST', body: JSON.stringify({ bookingId, sourceId }) }),
+  createSquareCheckoutSession: (bookingId) => request('/payments/create-square-checkout-session', { method: 'POST', body: JSON.stringify({ bookingId }) }),
 };
+
+

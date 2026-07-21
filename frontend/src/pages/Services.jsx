@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../utils/api';
+import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
 import { Clock, ShieldAlert, BadgeDollarSign, Calendar } from 'lucide-react';
 
 const FALLBACK_SERVICES = [
@@ -41,6 +42,7 @@ const FALLBACK_SERVICES = [
 export default function Services() {
   const [services, setServices] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [pageContent, setPageContent] = useState(DEFAULT_PAGE_CONTENT);
 
   useEffect(() => {
     async function fetchServices() {
@@ -60,15 +62,27 @@ export default function Services() {
     }
 
     fetchServices();
+
+    async function fetchPageContent() {
+      try {
+        const data = await api.getPageContent('services');
+        setPageContent({ ...DEFAULT_PAGE_CONTENT, ...data });
+      } catch (err) {
+        console.warn('Failed to load services page content:', err);
+        setPageContent(DEFAULT_PAGE_CONTENT);
+      }
+    }
+
+    fetchPageContent();
   }, []);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
       {/* Header Section */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mt-0">Our Cleaning Services</h1>
+        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mt-0">{getContentValue(pageContent, 'services.header.title')}</h1>
         <p className="text-lg text-slate-500 leading-relaxed">
-          Explore our range of professional cleaning packages. Choose the service that fits your schedule and requirements, and customize it with optional add-ons.
+          {getContentValue(pageContent, 'services.header.subtitle')}
         </p>
       </div>
 
@@ -135,11 +149,11 @@ export default function Services() {
         <div className="md:col-span-2 space-y-3">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-amber-100 text-amber-800 font-semibold text-xs">
             <ShieldAlert className="h-4 w-4" />
-            <span>Need Custom Commercial Cleaning?</span>
+            <span>{getContentValue(pageContent, 'services.trust.title')}</span>
           </div>
-          <h3 className="text-2xl font-bold text-slate-900">Custom cleaning requirements?</h3>
+          <h3 className="text-2xl font-bold text-slate-900">{getContentValue(pageContent, 'services.trust.title')}</h3>
           <p className="text-slate-500 text-sm max-w-xl leading-relaxed">
-            If you have a large property, specific commercial schedule, or specialized requests that do not fit standard categories, reach out to us directly for a custom tailored cleaning solution.
+            {getContentValue(pageContent, 'services.trust.subtitle')}
           </p>
         </div>
         <div className="flex justify-start md:justify-end">
@@ -147,7 +161,7 @@ export default function Services() {
             to="/contact"
             className="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold px-6 py-3.5 rounded-xl transition-all text-sm shadow-xs"
           >
-            Get in Touch
+            {getContentValue(pageContent, 'services.cta.button')}
           </Link>
         </div>
       </section>

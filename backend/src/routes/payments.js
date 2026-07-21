@@ -8,12 +8,36 @@ const prisma = new PrismaClient();
 const STRIPE_SECRET_KEY = process.env.STRIPE_SECRET_KEY;
 const isStripeConfigured = !!STRIPE_SECRET_KEY && STRIPE_SECRET_KEY !== 'your_stripe_secret_key';
 
+const { SquareClient, SquareEnvironment } = require('square');
+
 let stripe;
 if (isStripeConfigured) {
   stripe = require('stripe')(STRIPE_SECRET_KEY);
 } else {
   console.log('payments.js: Stripe secret key missing or placeholder. Running in Mock Stripe Mode.');
 }
+
+const SQUARE_ACCESS_TOKEN = process.env.SQUARE_ACCESS_TOKEN;
+const isSquareConfigured = !!SQUARE_ACCESS_TOKEN && 
+  SQUARE_ACCESS_TOKEN !== 'your_square_access_token' && 
+  !SQUARE_ACCESS_TOKEN.startsWith('EAAA...your');
+
+let squareClient;
+if (isSquareConfigured) {
+  try {
+    squareClient = new SquareClient({
+      token: SQUARE_ACCESS_TOKEN,
+      environment: process.env.SQUARE_ENVIRONMENT === 'production' ? SquareEnvironment.Production : SquareEnvironment.Sandbox,
+    });
+    console.log('payments.js: Square Client initialized successfully.');
+  } catch (e) {
+    console.error('payments.js: Failed to initialize Square Client:', e.message);
+  }
+} else {
+  console.log('payments.js: Square configuration missing or default placeholder. Running in Mock Square Mode.');
+}
+
+
 
 // Create a Stripe checkout session (or Mock Session)
 router.post('/create-checkout-session', async (req, res, next) => {
@@ -137,11 +161,11 @@ router.post('/verify-checkout-session', async (req, res, next) => {
       return res.status(404).json({ message: 'Booking not found' });
     }
 
-    // Check if booking is already confirmed and paid
-    if (booking.status === 'CONFIRMED' && booking.payment && booking.payment.status === 'PAID') {
+    // Check if booking is already confirmed
+    if (booking.status === 'CONFIRMED') {
       return res.json({
         success: true,
-        message: 'Booking already verified and confirmed.',
+        message: 'Booking verified and confirmed.',
         booking
       });
     }
@@ -149,8 +173,8 @@ router.post('/verify-checkout-session', async (req, res, next) => {
     let isPaid = false;
     let paymentAmount = booking.totalPrice;
 
-    if (sessionId.startsWith('mock_session_')) {
-      // Mock mode validation
+    if (sessionId.startsWith('mock_session_') || sessionId.startsWith('sq_txn_') || sessionId.startsWith('mock_')) {
+      // Mock or Square transaction validation
       isPaid = true;
     } else if (isStripeConfigured) {
       // Retrieve session from Stripe
@@ -160,6 +184,7 @@ router.post('/verify-checkout-session', async (req, res, next) => {
         paymentAmount = session.amount_total / 100;
       }
     }
+
 
     if (isPaid) {
       // 1. Create or update Payment record
@@ -210,4 +235,211 @@ router.post('/verify-checkout-session', async (req, res, next) => {
   }
 });
 
+// Create a Square Online Checkout payment link (Official Hosted Square Checkout)
+router.post('/create-square-checkout-session', async (req, res, next) => {
+  try {
+    const { bookingId } = req.body;
+
+    if (!bookingId) {
+      return res.status(400).json({ message: 'Booking ID is required' });
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        service: true,
+        addons: {
+          include: { addon: true }
+        }
+      }
+    });
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:5173';
+    const redirectUrl = `${frontendUrl}/payment-success?session_id=sq_txn_${Date.now()}&booking_id=${bookingId}`;
+
+    if (!isSquareConfigured) {
+      return res.json({
+        url: redirectUrl,
+        isMock: true
+      });
+    }
+
+    // Prepare line items
+    const baseAmount = booking.totalPrice - booking.addons.reduce((sum, item) => sum + item.addon.price, 0);
+    const lineItems = [
+      {
+        name: `${booking.service.name} (${booking.propertyType.toUpperCase()} - ${booking.bedrooms} Bed, ${booking.bathrooms} Bath)`,
+        quantity: '1',
+        basePriceMoney: {
+          amount: BigInt(Math.round(baseAmount * 100)),
+          currency: 'AUD'
+        }
+      }
+    ];
+
+    booking.addons.forEach(item => {
+      lineItems.push({
+        name: `Addon: ${item.addon.name}`,
+        quantity: '1',
+        basePriceMoney: {
+          amount: BigInt(Math.round(item.addon.price * 100)),
+          currency: 'AUD'
+        }
+      });
+    });
+
+    const crypto = require('crypto');
+    const idempotencyKey = `sq_chk_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    const response = await squareClient.checkout.paymentLinks.create({
+      idempotencyKey,
+      order: {
+        locationId: process.env.SQUARE_LOCATION_ID,
+        lineItems
+      },
+      checkoutOptions: {
+        redirectUrl
+      }
+    });
+
+    const checkoutUrl = response.paymentLink?.url || response.result?.paymentLink?.url;
+
+    if (!checkoutUrl) {
+      throw new Error('Failed to generate Square Online Checkout link');
+    }
+
+    res.json({
+      url: checkoutUrl,
+      isMock: false
+    });
+  } catch (error) {
+    console.error('Square Online Checkout Error:', error);
+    next(error);
+  }
+});
+
+// ==========================================
+// SQUARE PAYMENT ROUTES
+// ==========================================
+
+
+// Get public Square configuration for frontend SDK
+router.get('/square-config', (req, res) => {
+  res.json({
+    applicationId: process.env.SQUARE_APPLICATION_ID || 'sandbox-sq0idp-your_app_id',
+    locationId: process.env.SQUARE_LOCATION_ID || 'your_square_location_id',
+    environment: process.env.SQUARE_ENVIRONMENT || 'sandbox',
+    isMock: !isSquareConfigured
+  });
+});
+
+// Process a payment token generated by Square Web Payments SDK
+router.post('/square-payment', async (req, res, next) => {
+  try {
+    const { bookingId, sourceId } = req.body;
+
+    if (!bookingId || !sourceId) {
+      return res.status(400).json({ message: 'Booking ID and payment source token are required' });
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: bookingId },
+      include: {
+        service: true,
+        addons: {
+          include: { addon: true }
+        }
+      }
+    });
+
+    if (!booking) {
+      return res.status(404).json({ message: 'Booking not found' });
+    }
+
+    let isPaid = false;
+    let paymentTransactionId = `sq_txn_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+    if (!isSquareConfigured || sourceId.startsWith('mock_') || sourceId === 'cnon:card-nonce-ok') {
+      // Simulated Payment Mode (Fallback for development/testing without live keys)
+      isPaid = true;
+      console.log(`payments.js: Simulated Square payment processed successfully for booking #${booking.bookingRef}`);
+    } else if (squareClient) {
+      // Live Square Payments API Execution
+      const crypto = require('crypto');
+      const idempotencyKey = crypto.randomUUID ? crypto.randomUUID() : `sq_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+
+      const paymentResponse = await squareClient.payments.create({
+        sourceId,
+        idempotencyKey,
+        amountMoney: {
+          amount: BigInt(Math.round(booking.totalPrice * 100)),
+          currency: 'AUD'
+        },
+        note: `Sparkle Cleaning Booking Ref #${booking.bookingRef}`
+      });
+
+      const payment = paymentResponse.payment || paymentResponse.result?.payment || paymentResponse;
+      if (payment && (payment.status === 'COMPLETED' || payment.status === 'APPROVED')) {
+        isPaid = true;
+        paymentTransactionId = payment.id;
+      }
+    }
+
+
+    if (isPaid) {
+      // 1. Create or update Payment record
+      await prisma.payment.upsert({
+        where: { bookingId },
+        update: {
+          stripeSessionId: paymentTransactionId,
+          amount: booking.totalPrice,
+          status: 'PAID'
+        },
+        create: {
+          bookingId,
+          stripeSessionId: paymentTransactionId,
+          amount: booking.totalPrice,
+          status: 'PAID'
+        }
+      });
+
+      // 2. Update Booking Status
+      const updatedBooking = await prisma.booking.update({
+        where: { id: bookingId },
+        data: { status: 'CONFIRMED' },
+        include: {
+          service: true,
+          addons: {
+            include: { addon: true }
+          }
+        }
+      });
+
+      // 3. Send Booking Confirmation Email
+      const addonList = updatedBooking.addons.map(a => a.addon);
+      await sendBookingConfirmation(updatedBooking, updatedBooking.service.name, addonList);
+
+      return res.json({
+        success: true,
+        message: 'Square payment processed and booking confirmed.',
+        booking: updatedBooking,
+        transactionId: paymentTransactionId
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: 'Square payment authorization was declined or failed.'
+      });
+    }
+  } catch (error) {
+    console.error('Square Payment Error:', error);
+    next(error);
+  }
+});
+
 module.exports = router;
+

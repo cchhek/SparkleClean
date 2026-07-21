@@ -11,6 +11,7 @@ export default function PaymentSuccess() {
 
   const sessionId = searchParams.get('session_id');
   const bookingId = searchParams.get('booking_id');
+  const isMockSession = sessionId?.startsWith('mock_session_');
 
   useEffect(() => {
     if (!sessionId || !bookingId) {
@@ -50,7 +51,7 @@ export default function PaymentSuccess() {
           <Loader2 className="h-16 w-16 text-sky-500 animate-spin mx-auto" />
           <h2 className="text-2xl font-bold text-slate-900 mt-4">Verifying Your Payment</h2>
           <p className="text-slate-500 text-sm max-w-sm mx-auto leading-relaxed">
-            Please wait while we confirm your checkout session with Stripe and finalize your cleaning appointment.
+            Please wait while we confirm your secure payment and finalize your cleaning appointment.
           </p>
         </div>
       )}
@@ -76,11 +77,25 @@ export default function PaymentSuccess() {
             <p className="text-slate-400 text-xs leading-relaxed max-w-sm mx-auto">
               A detailed confirmation receipt with date, time, and service checklists has been sent to <span className="font-semibold text-slate-600">{booking.customerEmail}</span>.
             </p>
+
+            {isMockSession && (
+              <div className="mt-4 rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-700 text-sm">
+                Note: This deployment is using mock checkout mode, so payment is simulated. In production, you would be redirected to a secure payment page to complete your payment.
+              </div>
+            )}
           </div>
 
           {/* Booking Info Box */}
           <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 space-y-6 shadow-xs">
-            <h3 className="font-bold text-slate-900 text-lg border-b border-slate-100 pb-3">Appointment Summary</h3>
+            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
+              <h3 className="font-bold text-slate-900 text-lg">Appointment Summary</h3>
+              <button
+                onClick={() => window.print()}
+                className="text-xs font-semibold text-sky-600 hover:text-sky-700 border border-sky-200 hover:border-sky-300 px-3 py-1.5 rounded-lg transition-all"
+              >
+                Print Receipt
+              </button>
+            </div>
             
             <div className="space-y-4 text-sm text-slate-600">
               <div className="flex items-start space-x-3">
@@ -104,10 +119,17 @@ export default function PaymentSuccess() {
               <div className="flex items-start space-x-3">
                 <MapPin className="h-5 w-5 text-sky-500 shrink-0 mt-0.5" />
                 <div>
-                  <span className="font-bold text-slate-900 block">Address</span>
+                  <span className="font-bold text-slate-900 block">Cleaning Location</span>
                   <span className="text-slate-500 text-xs">{booking.customerAddress}</span>
                 </div>
               </div>
+
+              {booking.customerName && (
+                <div className="pt-3 border-t border-slate-100 flex justify-between text-xs">
+                  <span className="text-slate-500">Customer Name:</span>
+                  <span className="font-bold text-slate-900">{booking.customerName}</span>
+                </div>
+              )}
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex justify-between items-center text-sm">
@@ -115,7 +137,7 @@ export default function PaymentSuccess() {
                 <CreditCard className="h-4 w-4 text-emerald-500" />
                 <span>Paid via Card</span>
               </div>
-              <span className="font-extrabold text-lg text-slate-900">${booking.totalPrice.toFixed(2)}</span>
+              <span className="font-extrabold text-lg text-slate-900">AUD ${booking.totalPrice.toFixed(2)}</span>
             </div>
           </div>
 
@@ -130,6 +152,7 @@ export default function PaymentSuccess() {
           </div>
         </div>
       )}
+
 
       {/* ----------------------------------------------------
           ERROR STATE

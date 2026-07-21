@@ -1,5 +1,7 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Phone, Mail, MapPin, Clock, Send, CheckCircle2 } from 'lucide-react';
+import { api } from '../utils/api';
+import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
 
 export default function Contact() {
   const [submitted, setSubmitted] = useState(false);
@@ -11,6 +13,7 @@ export default function Contact() {
     subject: '',
     message: ''
   });
+  const [pageContent, setPageContent] = useState(DEFAULT_PAGE_CONTENT);
 
   const handleChange = (e) => {
     setFormData({
@@ -18,6 +21,20 @@ export default function Contact() {
       [e.target.name]: e.target.value
     });
   };
+
+  useEffect(() => {
+    async function fetchContent() {
+      try {
+        const data = await api.getPageContent('contact');
+        setPageContent({ ...DEFAULT_PAGE_CONTENT, ...data });
+      } catch (err) {
+        console.warn('Failed to load contact page content:', err);
+        setPageContent(DEFAULT_PAGE_CONTENT);
+      }
+    }
+
+    fetchContent();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -34,9 +51,9 @@ export default function Contact() {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 space-y-12">
       {/* Header */}
       <div className="text-center max-w-3xl mx-auto space-y-4">
-        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mt-0">Contact Our Team</h1>
+        <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mt-0">{getContentValue(pageContent, 'contact.header.title')}</h1>
         <p className="text-lg text-slate-500 leading-relaxed">
-          Have a question about our booking flow, pricing, or checklists? Get in touch with us. We generally reply to all email requests within 2 hours.
+          {getContentValue(pageContent, 'contact.header.subtitle')}
         </p>
       </div>
 
@@ -50,21 +67,21 @@ export default function Contact() {
                 <Phone className="h-5 w-5 text-sky-500 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-900 block">Phone</span>
-                  <span>+61 2 9876 5432</span>
+                  <span>{getContentValue(pageContent, 'contact.phone')}</span>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <Mail className="h-5 w-5 text-sky-500 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-900 block">Email</span>
-                  <a href="mailto:info@sparkleclean.com" className="text-sky-600 hover:underline">info@sparkleclean.com</a>
+                  <a href={`mailto:${getContentValue(pageContent, 'contact.email')}`} className="text-sky-600 hover:underline">{getContentValue(pageContent, 'contact.email')}</a>
                 </div>
               </div>
               <div className="flex items-start space-x-3">
                 <MapPin className="h-5 w-5 text-sky-500 shrink-0 mt-0.5" />
                 <div>
                   <span className="font-bold text-slate-900 block">Address</span>
-                  <span>123 Sparkle Way, Sydney NSW 2000</span>
+                  <span>{getContentValue(pageContent, 'contact.address')}</span>
                 </div>
               </div>
             </div>
@@ -78,11 +95,11 @@ export default function Contact() {
                 <div>
                   <div className="flex justify-between w-48">
                     <span className="font-semibold text-slate-900">Monday - Friday:</span>
-                    <span>8 AM - 6 PM</span>
+                    <span>{getContentValue(pageContent, 'contact.hours.weekdays')}</span>
                   </div>
                   <div className="flex justify-between w-48 mt-1">
                     <span className="font-semibold text-slate-900">Sat - Sun:</span>
-                    <span>9 AM - 4 PM</span>
+                    <span>{getContentValue(pageContent, 'contact.hours.weekend')}</span>
                   </div>
                 </div>
               </div>
@@ -92,7 +109,7 @@ export default function Contact() {
 
         {/* Contact Form */}
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-3xl p-8 shadow-xs text-left">
-          <h3 className="text-xl font-bold text-slate-900 mb-6">Send Us a Message</h3>
+          <h3 className="text-xl font-bold text-slate-900 mb-6">{getContentValue(pageContent, 'contact.form.title')}</h3>
 
           {submitted ? (
             <div className="p-6 bg-emerald-50 text-emerald-800 rounded-2xl border border-emerald-100 flex items-start space-x-4">
@@ -182,7 +199,7 @@ export default function Contact() {
                   className="flex items-center space-x-2 bg-sky-500 hover:bg-sky-600 text-white font-bold px-6 py-3 rounded-xl transition-all shadow-md shadow-sky-100 hover:shadow-sky-200 cursor-pointer disabled:opacity-60 text-sm"
                 >
                   <Send className="h-4 w-4" />
-                  <span>{submitting ? 'Sending...' : 'Send Message'}</span>
+                  <span>{submitting ? 'Sending...' : getContentValue(pageContent, 'contact.form.submit')}</span>
                 </button>
               </div>
             </form>

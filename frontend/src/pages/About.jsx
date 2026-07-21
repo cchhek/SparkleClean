@@ -1,5 +1,8 @@
 import { Sparkles, ShieldCheck, Heart, Award, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { api } from '../utils/api';
+import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
 
 export default function About() {
   const values = [
@@ -9,14 +12,30 @@ export default function About() {
     { icon: <Users className="h-6 w-6 text-sky-500" />, title: 'Happy Cleaners, Happy Homes', desc: 'We pay above-award wages, fostering a proud and dedicated workforce.' }
   ];
 
+  const [pageContent, setPageContent] = useState(DEFAULT_PAGE_CONTENT);
+
+  useEffect(() => {
+    async function fetchContent() {
+      try {
+        const data = await api.getPageContent('about');
+        setPageContent({ ...DEFAULT_PAGE_CONTENT, ...data });
+      } catch (err) {
+        console.warn('Failed to load about page content:', err);
+        setPageContent(DEFAULT_PAGE_CONTENT);
+      }
+    }
+
+    fetchContent();
+  }, []);
+
   return (
     <div className="space-y-16 pb-16">
       {/* Hero Section */}
       <section className="bg-gradient-to-br from-slate-50 to-sky-50 py-16 px-4 border-b border-slate-200">
         <div className="max-w-3xl mx-auto text-center space-y-4">
-          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mt-0">Our Story</h1>
+          <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight mt-0">{getContentValue(pageContent, 'about.hero.title')}</h1>
           <p className="text-lg text-slate-500 leading-relaxed">
-            Founded with a simple mission: to bring premium, stress-free, and professional cleaning services to homes and businesses across the metropolitan region.
+            {getContentValue(pageContent, 'about.hero.subtitle')}
           </p>
         </div>
       </section>
@@ -24,15 +43,15 @@ export default function About() {
       {/* Content Section */}
       <section className="max-w-5xl mx-auto px-4 sm:px-6 grid grid-cols-1 md:grid-cols-2 gap-12 items-center text-left">
         <div className="space-y-6">
-          <h2 className="text-3xl font-bold text-slate-900">How SparkleClean Began</h2>
+          <h2 className="text-3xl font-bold text-slate-900">{getContentValue(pageContent, 'about.content.title')}</h2>
           <p className="text-slate-600 text-sm leading-relaxed">
-            It started in 2018 when our founder struggled to find a reliable, high-quality home cleaning service online. Booking required phone calls, vague quotes, and inconsistent results.
+            {getContentValue(pageContent, 'about.content.p1')}
           </p>
           <p className="text-slate-600 text-sm leading-relaxed">
-            We decided to fix that. We designed a web booking system that calculates quotes instantly based on bedrooms/bathrooms, accepts safe card payments, and dispatches highly trained cleaning professionals who arrive on time and get the job done right.
+            {getContentValue(pageContent, 'about.content.p2')}
           </p>
           <p className="text-slate-600 text-sm leading-relaxed">
-            Today, SparkleClean has completed over 15,000 bookings and maintains a 4.9-star client rating. We continue to invest in eco-friendly supplies and advanced training for our amazing staff.
+            {getContentValue(pageContent, 'about.content.p3')}
           </p>
         </div>
         <div className="relative">
@@ -80,7 +99,7 @@ export default function About() {
             to="/booking"
             className="bg-sky-500 hover:bg-sky-600 text-white font-bold px-8 py-4 rounded-xl shadow-lg shadow-sky-100 hover:shadow-sky-200 transition-all text-center inline-block"
           >
-            Book Now
+            {getContentValue(pageContent, 'about.cta.button')}
           </Link>
         </div>
       </section>

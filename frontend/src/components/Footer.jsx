@@ -92,6 +92,7 @@ export default function Footer() {
               <li><Link to="/about" className="hover:text-sky-400 transition-colors">About Us</Link></li>
               <li><Link to="/contact" className="hover:text-sky-400 transition-colors">Contact Us</Link></li>
               <li><Link to="/booking" className="hover:text-sky-400 transition-colors font-medium text-sky-400">Book Online</Link></li>
+              <li><Link to="/admin/login" className="hover:text-sky-400 transition-colors">Admin Login</Link></li>
             </ul>
           </div>
 

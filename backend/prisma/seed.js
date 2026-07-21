@@ -6,7 +6,7 @@ async function main() {
   console.log('Seeding database...');
 
   // Create default Admin User
-  const adminEmail = 'admin@cleaningservice.com';
+  const adminEmail = 'admin@gmail.com';
   const existingAdmin = await prisma.user.findUnique({
     where: { email: adminEmail }
   });
@@ -59,19 +59,12 @@ async function main() {
   ];
 
   for (const service of services) {
-    await prisma.service.upsert({
-      where: { id: service.name }, // Hacky but works if we search or check. Wait, name is not unique. Let's find first instead.
-      update: {},
-      create: service
-    }).catch(async (e) => {
-      // Just check if we can query by name
-      const existing = await prisma.service.findFirst({
-        where: { name: service.name }
-      });
-      if (!existing) {
-        await prisma.service.create({ data: service });
-      }
+    const existing = await prisma.service.findFirst({
+      where: { name: service.name }
     });
+    if (!existing) {
+      await prisma.service.create({ data: service });
+    }
   }
   console.log('Services seeded.');
 

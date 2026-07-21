@@ -1,13 +1,30 @@
 import { Link } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Clock, ThumbsUp, DollarSign, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { api } from '../utils/api';
+import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
 
 export default function Home() {
   const [openFaq, setOpenFaq] = useState(null);
+  const [pageContent, setPageContent] = useState(DEFAULT_PAGE_CONTENT);
 
   const toggleFaq = (index) => {
     setOpenFaq(openFaq === index ? null : index);
   };
+
+  useEffect(() => {
+    async function fetchContent() {
+      try {
+        const data = await api.getPageContent('home');
+        setPageContent({ ...DEFAULT_PAGE_CONTENT, home: { ...DEFAULT_PAGE_CONTENT.home, ...data } });
+      } catch (err) {
+        console.warn('Failed to load home page content:', err);
+        setPageContent(DEFAULT_PAGE_CONTENT);
+      }
+    }
+
+    fetchContent();
+  }, []);
 
   const servicesPreview = [
     {
@@ -61,23 +78,23 @@ export default function Home() {
               <span>Premium Cleaning Services</span>
             </div>
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 leading-tight tracking-tight mt-0">
-              Making your home <span className="text-sky-500">clean, comfortable</span>, and stress-free.
+              {getContentValue(pageContent, 'home.hero.title')}
             </h1>
             <p className="text-lg text-slate-600 max-w-xl leading-relaxed">
-              Book professional, reliable, and vetted cleaning specialists online in under 60 seconds. Sit back and relax while we make your home shine.
+              {getContentValue(pageContent, 'home.hero.subtitle')}
             </p>
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <Link
                 to="/booking"
                 className="bg-sky-500 hover:bg-sky-600 text-white font-semibold px-8 py-4 rounded-xl shadow-lg shadow-sky-100 hover:shadow-sky-200 transition-all text-center"
               >
-                Book a Cleaning
+                {getContentValue(pageContent, 'home.hero.primaryButton')}
               </Link>
               <Link
                 to="/services"
                 className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-semibold px-8 py-4 rounded-xl transition-all text-center"
               >
-                Explore Services
+                {getContentValue(pageContent, 'home.hero.secondaryButton')}
               </Link>
             </div>
           </div>
@@ -95,9 +112,9 @@ export default function Home() {
       {/* Services Overview */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center space-y-3 mb-12">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">Popular Cleaning Services</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">{getContentValue(pageContent, 'home.services.title')}</h2>
           <p className="text-slate-500 max-w-2xl mx-auto">
-            Choose from our range of services tailored to meet all home and business cleaning needs.
+            {getContentValue(pageContent, 'home.services.subtitle')}
           </p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -184,9 +201,9 @@ export default function Home() {
       <section className="bg-gradient-to-br from-sky-600 to-blue-700 py-16 text-white rounded-3xl max-w-7xl mx-auto px-6 sm:px-12 shadow-xl shadow-sky-100">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 text-left">
-            <h2 className="text-3xl sm:text-4xl font-extrabold text-white">We Serve the Entire Metropolitan Area</h2>
+            <h2 className="text-3xl sm:text-4xl font-extrabold text-white">{getContentValue(pageContent, 'home.cta.title')}</h2>
             <p className="text-sky-100 text-base leading-relaxed">
-              Wondering if we operate in your neighborhood? Our professional teams serve Sydney Metro, North Shore, Inner West, and Eastern Suburbs.
+              {getContentValue(pageContent, 'home.cta.subtitle')}
             </p>
             <div className="grid grid-cols-2 gap-4 text-sky-100 font-semibold text-sm">
               <div className="flex items-center space-x-2">
