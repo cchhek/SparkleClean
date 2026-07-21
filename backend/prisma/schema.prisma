@@ -87,3 +87,14 @@ model Payment {
   status          String   // "PENDING", "PAID", "FAILED"
   createdAt       DateTime @default(now())
 }
+
+model Review {
+  id          String   @id @default(uuid())
+  name        String
+  serviceName String   @default("Home Cleaning")
+  rating      Int      @default(5)
+  comment     String
+  approved    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+}
+

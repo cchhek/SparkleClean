@@ -7,6 +7,7 @@ const serviceRoutes = require('./routes/services');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
 const pageContentRoutes = require('./routes/pageContent');
+const reviewRoutes = require('./routes/reviews');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -40,6 +41,8 @@ app.use('/api/services', serviceRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/page-content', pageContentRoutes);
+app.use('/api/reviews', reviewRoutes);
+
 
 // Error Handling Middleware
 app.use((err, req, res, next) => {

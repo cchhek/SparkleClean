@@ -96,8 +96,42 @@ async function main() {
   }
   console.log('Addons seeded.');
 
+  // Seed sample reviews
+  const reviews = [
+    {
+      name: 'Sarah Jenkins',
+      serviceName: 'Regular House Cleaning',
+      rating: 5,
+      comment: 'SparkleClean did an unbelievable job! My house feels brand new and smells amazing.',
+      approved: true
+    },
+    {
+      name: 'David Miller',
+      serviceName: 'Deep Cleaning',
+      rating: 5,
+      comment: 'Extremely thorough service. Every corner was spotless. Highly recommend their team!',
+      approved: true
+    },
+    {
+      name: 'Emily Watson',
+      serviceName: 'Move-In Cleaning',
+      rating: 5,
+      comment: 'Punctual, professional, and friendly. Solved our move-in cleaning stress completely.',
+      approved: true
+    }
+  ];
+
+  for (const review of reviews) {
+    const exists = await prisma.review.findFirst({ where: { name: review.name, comment: review.comment } });
+    if (!exists) {
+      await prisma.review.create({ data: review });
+    }
+  }
+  console.log('Reviews seeded.');
+
   console.log('Database seeding completed successfully!');
 }
+
 
 main()
   .catch((e) => {

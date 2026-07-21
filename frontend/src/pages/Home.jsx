@@ -2,7 +2,9 @@ import { Link } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Clock, ThumbsUp, DollarSign, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../utils/api';
+import CustomerReviews from '../components/CustomerReviews';
 import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
+
 
 export default function Home() {
   const [openFaq, setOpenFaq] = useState(null);
@@ -267,6 +269,10 @@ export default function Home() {
           })}
         </div>
       </section>
+
+      {/* Customer Reviews & Feedback Section */}
+      <CustomerReviews />
+
 
       {/* Contact Section */}
       <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-t border-slate-200 pt-16">

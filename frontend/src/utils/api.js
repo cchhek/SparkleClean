@@ -117,13 +117,19 @@ export const api = {
   updateBookingStatus: (id, status) => request(`/bookings/${id}/status`, { method: 'PUT', body: JSON.stringify({ status }) }),
 
   // Payments
-  createCheckoutSession: (bookingId) => request('/payments/create-checkout-session', { method: 'POST', body: JSON.stringify({ bookingId }) }),
-  verifyCheckoutSession: (sessionId, bookingId) => request('/payments/verify-checkout-session', { method: 'POST', body: JSON.stringify({ sessionId, bookingId }) }),
-  
   // Square Payments
   getSquareConfig: () => request('/payments/square-config'),
   processSquarePayment: (bookingId, sourceId) => request('/payments/square-payment', { method: 'POST', body: JSON.stringify({ bookingId, sourceId }) }),
   createSquareCheckoutSession: (bookingId) => request('/payments/create-square-checkout-session', { method: 'POST', body: JSON.stringify({ bookingId }) }),
+
+  // Reviews & Feedback
+  getReviews: () => request('/reviews'),
+  submitReview: (data) => request('/reviews', { method: 'POST', body: JSON.stringify(data) }),
+  getAllReviewsAdmin: () => request('/reviews/all'),
+  toggleApproveReview: (id, approved) => request(`/reviews/${id}/approve`, { method: 'PUT', body: JSON.stringify({ approved }) }),
+  deleteReview: (id) => request(`/reviews/${id}`, { method: 'DELETE' }),
 };
+
+
 
 
