@@ -1,0 +1,9 @@
+{
+  "name": "sparkle-clean-fullstack",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build && cd ../backend && npm install && npx prisma db push",
+    "start": "cd backend && node src/index.js"
+  }
+}
