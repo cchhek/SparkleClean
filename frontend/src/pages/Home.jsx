@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Clock, ThumbsUp, DollarSign, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../utils/api';
-import CustomerReviews from '../components/CustomerReviews';
 import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
+
 
 
 export default function Home() {
@@ -270,8 +270,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Customer Reviews & Feedback Section */}
-      <CustomerReviews />
 
 
       {/* Contact Section */}
