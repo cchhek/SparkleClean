@@ -2,8 +2,8 @@ import { Link } from 'react-router-dom';
 import { Sparkles, ShieldCheck, Clock, ThumbsUp, DollarSign, ChevronDown, Phone, Mail, MapPin } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { api } from '../utils/api';
+import CustomerReviews from '../components/CustomerReviews';
 import { getContentValue, DEFAULT_PAGE_CONTENT } from '../utils/pageContent';
-
 
 
 export default function Home() {
@@ -175,31 +175,8 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Customer Testimonials */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center space-y-3 mb-12">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">What Our Customers Say</h2>
-          <p className="text-slate-500 max-w-2xl mx-auto">
-            Read real feedback from happy clients who have experienced our professional touch.
-          </p>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-          {testimonials.map((t, index) => (
-            <div key={index} className="bg-white border border-slate-200 rounded-2xl p-6 text-left shadow-xs flex flex-col justify-between">
-              <p className="text-slate-600 italic text-sm leading-relaxed">"{t.quote}"</p>
-              <div className="mt-6 pt-4 border-t border-slate-100 flex justify-between items-center">
-                <div>
-                  <h4 className="font-bold text-slate-900 text-sm">{t.name}</h4>
-                  <span className="text-xs text-slate-400">{t.role}</span>
-                </div>
-                <span className="text-amber-400 font-bold text-sm">★★★★★</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
       {/* Service Areas */}
+
       <section className="bg-gradient-to-br from-sky-600 to-blue-700 py-16 text-white rounded-3xl max-w-7xl mx-auto px-6 sm:px-12 shadow-xl shadow-sky-100">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
           <div className="space-y-6 text-left">
@@ -270,6 +247,8 @@ export default function Home() {
         </div>
       </section>
 
+      {/* Customer Reviews & Feedback Section */}
+      <CustomerReviews />
 
 
       {/* Contact Section */}
